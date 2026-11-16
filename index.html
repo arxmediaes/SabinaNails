@@ -629,17 +629,15 @@ function openCourse(id){
  var c=COURSES[id];if(!c)return;
  lastFocus=document.activeElement;
  mBody.innerHTML=render(c);mBody.scrollTop=0;
- if(window.__sabinaLang==='ru'){
-   setTimeout(function(){
-     var combo=document.querySelector('.goog-te-combo');
-     if(combo){combo.value='es';combo.dispatchEvent(new Event('change'));
-       setTimeout(function(){combo.value='ru';combo.dispatchEvent(new Event('change'));},180);
-     }
-   },250);
- }
  if(dlg.showModal){dlg.showModal()}else{dlg.setAttribute('open','')}
  document.documentElement.classList.add('lock');
  requestAnimationFrame(function(){requestAnimationFrame(function(){dlg.classList.add('on')})});
+ // El contenido del modal se inserta dinámicamente: traducirlo SOLO cuando ya está visible.
+ if(window.__sabinaLang==='ru'&&window.__sabinaApplyLanguage){
+   [450,1100,1900].forEach(function(ms){
+     setTimeout(function(){if(dlg.open||dlg.hasAttribute('open'))window.__sabinaApplyLanguage('ru',true)},ms);
+   });
+ }
 }
 function closeModal(){
  dlg.classList.remove('on');
@@ -647,6 +645,11 @@ function closeModal(){
   if(dlg.close){dlg.close()}else{dlg.removeAttribute('open')}
   document.documentElement.classList.remove('lock');
   if(lastFocus&&lastFocus.focus)lastFocus.focus({preventScroll:true});
+  // Google Translate puede revertir nodos al cerrar un dialog en móvil.
+  if(window.__sabinaLang==='ru'&&window.__sabinaApplyLanguage){
+    setTimeout(function(){window.__sabinaApplyLanguage('ru',true)},350);
+    setTimeout(function(){window.__sabinaApplyLanguage('ru',true)},1000);
+  }
  },reduce?0:360);
 }
 $$('[data-open]').forEach(function(b){b.addEventListener('click',function(){openCourse(b.getAttribute('data-open'))})});
@@ -727,24 +730,63 @@ function googleTranslateElementInit(){
 }
 (function(){
   var buttons=document.querySelectorAll('.lang-switch button');
-  function setLanguage(lang){
+  function markLanguage(lang){
     window.__sabinaLang=lang;
     buttons.forEach(function(b){
       var active=b.getAttribute('data-lang')===lang;
       b.classList.toggle('active',active);
       b.setAttribute('aria-pressed',active?'true':'false');
     });
+  }
+  function writeTranslateCookie(lang){
+    var value='/es/'+lang;
+    document.cookie='googtrans='+value+';path=/;max-age=31536000;SameSite=Lax';
+  }
+  function applyLanguage(lang,force){
+    markLanguage(lang);
+    try{localStorage.setItem('sabina-language',lang)}catch(e){}
+    writeTranslateCookie(lang);
     var tries=0;
     var timer=setInterval(function(){
       var combo=document.querySelector('.goog-te-combo');
       if(combo){
-        combo.value=lang;
-        combo.dispatchEvent(new Event('change'));
         clearInterval(timer);
-      }else if(++tries>40){clearInterval(timer);}
+        // Forzar una nueva pasada: Google Translate no detecta siempre el HTML
+        // que se añade dentro de un dialog después de cargar la página.
+        if(lang==='ru'&&force){
+          combo.value='es';
+          combo.dispatchEvent(new Event('change'));
+          setTimeout(function(){
+            var current=document.querySelector('.goog-te-combo');
+            if(current){current.value='ru';current.dispatchEvent(new Event('change'))}
+          },420);
+        }else{
+          combo.value=lang;
+          combo.dispatchEvent(new Event('change'));
+        }
+      }else if(++tries>48){clearInterval(timer);}
     },250);
   }
-  buttons.forEach(function(b){b.addEventListener('click',function(){setLanguage(b.getAttribute('data-lang'));});});
+  window.__sabinaApplyLanguage=applyLanguage;
+  buttons.forEach(function(b){
+    b.addEventListener('click',function(){applyLanguage(b.getAttribute('data-lang'),true);});
+  });
+  var saved='es';
+  try{saved=localStorage.getItem('sabina-language')||'es'}catch(e){}
+  markLanguage(saved);
+  if(saved==='ru'){
+    window.__sabinaLang='ru';
+    window.addEventListener('load',function(){setTimeout(function(){applyLanguage('ru',false)},500)});
+  }
+  window.addEventListener('pageshow',function(){
+    if(window.__sabinaLang==='ru')setTimeout(function(){applyLanguage('ru',true)},500);
+  });
+  window.addEventListener('popstate',function(){
+    if(window.__sabinaLang==='ru')setTimeout(function(){applyLanguage('ru',true)},500);
+  });
+  document.addEventListener('visibilitychange',function(){
+    if(!document.hidden&&window.__sabinaLang==='ru')setTimeout(function(){applyLanguage('ru',true)},500);
+  });
 })();
 </script>
 <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" async></script>
