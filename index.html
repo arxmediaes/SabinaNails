@@ -629,6 +629,14 @@ function openCourse(id){
  var c=COURSES[id];if(!c)return;
  lastFocus=document.activeElement;
  mBody.innerHTML=render(c);mBody.scrollTop=0;
+ if(window.__sabinaLang==='ru'){
+   setTimeout(function(){
+     var combo=document.querySelector('.goog-te-combo');
+     if(combo){combo.value='es';combo.dispatchEvent(new Event('change'));
+       setTimeout(function(){combo.value='ru';combo.dispatchEvent(new Event('change'));},180);
+     }
+   },250);
+ }
  if(dlg.showModal){dlg.showModal()}else{dlg.setAttribute('open','')}
  document.documentElement.classList.add('lock');
  requestAnimationFrame(function(){requestAnimationFrame(function(){dlg.classList.add('on')})});
@@ -720,6 +728,7 @@ function googleTranslateElementInit(){
 (function(){
   var buttons=document.querySelectorAll('.lang-switch button');
   function setLanguage(lang){
+    window.__sabinaLang=lang;
     buttons.forEach(function(b){
       var active=b.getAttribute('data-lang')===lang;
       b.classList.toggle('active',active);
